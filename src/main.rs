@@ -21,7 +21,7 @@ fn main() {
     println!("graph1: {:?}", res1);
 
     let graph2 = vec![
-        vec![3],
+        vec![3, 0],
         vec![3, 4],
         vec![4],
         vec![5, 6, 7],
