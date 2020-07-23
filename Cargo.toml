@@ -12,5 +12,8 @@ readme = "README.md"
 keywords = ["toposort", "scc", "graph", "kahn", "kosaraju"]
 categories = ["algorithms"]
 
+[package.metadata.docs.rs]
+features = ["id-arena"]
+
 [dependencies]
 id-arena = { version = "2", optional = true }
