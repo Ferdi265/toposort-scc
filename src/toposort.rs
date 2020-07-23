@@ -1,5 +1,6 @@
 use std::collections::VecDeque as Queue;
 use std::marker::PhantomData;
+use std::mem;
 
 use id_arena::Arena;
 use id_arena::ArenaBehavior;
@@ -60,22 +61,35 @@ impl Graph {
         self.vertices[to].in_edges.push(from);
     }
 
+    pub fn transpose(&mut self) {
+        for vertex in &mut self.vertices {
+            mem::swap(&mut vertex.in_degree, &mut vertex.out_degree);
+            mem::swap(&mut vertex.in_edges, &mut vertex.out_edges);
+        }
+    }
+
     pub fn toposort(mut self) -> Result<Vec<usize>, Vec<Vec<usize>>> {
         let mut queue = Queue::new();
         let mut sorted = Vec::new();
 
-        // enqueue vertices for backward toposort
-        for (idx, vertex) in self.vertices.iter().enumerate() {
+        // Kahn's algorithm for toposort
+
+        // enqueue vertices with in-degree zero
+        for (idx, vertex) in self.vertices.iter_mut().enumerate() {
+            // out_degree is unused in this algorithm
+            // set out_degree to zero to be used as a 'visited' flag by
+            // Kosaraju's algorithm later
+            vertex.out_degree = 0;
+
             if vertex.in_degree == 0 {
                 queue.push_back(idx);
             }
         }
 
-        // backward toposort
+        // add vertices from queue to sorted list
+        // decrement in-degree of neighboring edges
+        // add to queue if in-degree zero
         while let Some(idx) = queue.pop_front() {
-            // sorted vertices are marked with a zero out-degree
-            // and zero in-degree
-            self.vertices[idx].out_degree = 0;
             sorted.push(idx);
 
             for edge_idx in 0..self.vertices[idx].out_edges.len() {
@@ -88,84 +102,71 @@ impl Graph {
             }
         }
 
-        // every vertex appears in sorted list, sort is complete
+        // if every vertex appears in sorted list, sort is successful
         if sorted.len() == self.vertices.len() {
             return Ok(sorted)
+        } else {
+            drop(sorted);
         }
 
-        // enqueue vertices for forward toposort
-        // ignore vertices marked as removed by forward toposort
-        for (idx, vertex) in self.vertices.iter().enumerate() {
-            if vertex.out_degree == 0 && vertex.in_degree != 0 {
+        // else, compute strongly connected components
+        // out_degree is zero everywhere, can be used as a 'visited' flag
+
+        // Kosaraju's algorithm for strongly connected components
+
+        // start depth-first search with first vertex
+        // (empty graphs are always cycle-free, so won't reach here)
+        let mut dfs_stack = vec![(0, 0)];
+        self.vertices[0].out_degree = 1;
+
+        // add vertices to queue in post-order
+        while let Some((idx, edge_idx)) = dfs_stack.pop() {
+            if edge_idx < self.vertices[idx].out_edges.len() {
+                dfs_stack.push((idx, edge_idx + 1));
+
+                let next_idx = self.vertices[idx].out_edges[edge_idx];
+                if self.vertices[next_idx].out_degree == 0 {
+                    self.vertices[next_idx].out_degree = 1;
+                    dfs_stack.push((next_idx, 0));
+                }
+            } else {
                 queue.push_back(idx);
             }
         }
 
-        // forward toposort
-        while let Some(idx) = queue.pop_front() {
-            // sorted vertices are marked with a zero out-degree
-            // and zero in-degree
-            self.vertices[idx].in_degree = 0;
-
-            for edge_idx in 0..self.vertices[idx].in_edges.len() {
-                let next_idx = self.vertices[idx].in_edges[edge_idx];
-
-                if self.vertices[next_idx].out_degree == 0 {
-                    continue
-                }
-
-                self.vertices[next_idx].out_degree -= 1;
-                if self.vertices[next_idx].out_degree == 0 {
-                    queue.push_back(next_idx);
-                }
-            }
-        }
-
-        // enqueue vertices for collecting cycles
-        // vertices with non-zero in- or out-degree are part of a cycle or
-        // strongly connected component
+        // collect cycles by depth-first search in opposite edge direction
+        // from each vertex in queue
         let mut cycles = Vec::new();
-        for (idx, vertex) in self.vertices.iter().enumerate() {
-            if vertex.out_degree > 0 {
-                queue.push_back(idx);
+        while let Some(root_idx) = queue.pop_back() {
+            if self.vertices[root_idx].out_degree == 2 {
+                continue
             }
-        }
 
-        // collect cycles
-        while let Some(start_idx) = queue.pop_front() {
-            if self.vertices[start_idx].out_degree > 0 {
-                self.vertices[start_idx].out_degree = 0;
+            let mut cur_cycle = Vec::new();
 
-                let mut cur_cycle_queue = Queue::new();
-                let mut cur_cycle = Vec::new();
+            dfs_stack.push((root_idx, 0));
 
-                for &next_idx in &self.vertices[start_idx].out_edges {
-                    let next_vertex = &self.vertices[next_idx];
-                    if next_vertex.out_degree > 0 {
-                        cur_cycle_queue.push_back(next_idx);
+            while let Some((idx, edge_idx)) = dfs_stack.pop() {
+                if edge_idx < self.vertices[idx].in_edges.len() {
+                    dfs_stack.push((idx, edge_idx + 1));
+
+                    let next_idx = self.vertices[idx].in_edges[edge_idx];
+                    if self.vertices[next_idx].out_degree == 1 {
+                        self.vertices[next_idx].out_degree = 2;
+                        dfs_stack.push((self.vertices[idx].in_edges[edge_idx], 0));
+                        cur_cycle.push(next_idx);
                     }
                 }
+            }
 
-                cur_cycle.push(start_idx);
-
-                while let Some(idx) = cur_cycle_queue.pop_front() {
-                    if self.vertices[idx].out_degree > 0 {
-                        self.vertices[idx].out_degree = 0;
-
-                        cur_cycle.push(idx);
-                        for &next_idx in &self.vertices[idx].out_edges {
-                            let next_vertex = &self.vertices[next_idx];
-                            if next_vertex.out_degree > 0 {
-                                cur_cycle_queue.push_back(next_idx);
-                            }
-                        }
-                    }
-                }
-
+            if self.vertices[root_idx].out_degree == 2 {
                 cycles.push(cur_cycle);
+            } else {
+                self.vertices[root_idx].out_degree = 2;
             }
         }
 
+        // return collected cycles
         Err(cycles)
     }
 }
