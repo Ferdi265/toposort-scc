@@ -1,10 +1,16 @@
 [package]
-name = "toposort_v2"
 version = "0.1.0"
-authors = ["Ferdinand Bachmann <theferdi265@gmail.com>"]
 edition = "2018"
+name = "toposort-scc"
+description = "An implementation of Kahn's algorithm for topological sorting and Kosaraju's algorithm for strongly connected components"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT OR Apache-2.0"
+authors = ["Ferdinand Bachmann <theferdi265@gmail.com>"]
+repository = "https://github.com/Ferdi265/toposort-scc"
+readme = "README.md"
+
+keywords = ["toposort", "scc", "graph", "kahn", "kosaraju"]
+categories = ["algorithms"]
 
 [dependencies]
-id-arena = "2"
+id-arena = { version = "2", optional = true }
