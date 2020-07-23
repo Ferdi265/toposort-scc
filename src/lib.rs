@@ -1,3 +1,29 @@
+// Copyright 2020 Ferdinand Bachmann
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+//! An implementation of
+//! [Kahn's algorithm](https://en.wikipedia.org/wiki/Topological_sorting)
+//! for topological sorting and
+//! [Kosaraju's algorithm](https://en.wikipedia.org/wiki/Kosaraju%27s_algorithm)
+//! for strongly connected components.
+//!
+//! This crate provides:
+//!
+//! - an adjacency-list based graph data structure
+//! - an implementation of a topological sorting algorithm that runs in `O(V + E)`
+//!   time and `O(V)` additional space (Kahn's algorithm)
+//! - an implementation of an algorithm that finds the strongly connected components
+//!   of a graph in `O(V + E)` time and `O(V)` additional space (Kosaraju's algorithm)
+//!
+//! The `id-arena` feature adds an additional wrapper type that allows topological
+//! sorting and finding of strongly connected components on arbitrary graph
+//! structures built with the `id-arena` crate by creating a proxy graph that is
+//! sorted and returning a list of indices into the original graph.
+
 use std::collections::VecDeque as Queue;
 use std::mem;
 
@@ -7,6 +33,10 @@ mod arena_graph;
 #[cfg(feature = "id-arena")]
 pub use arena_graph::*;
 
+/// An adjacency-list-based graph data structure
+///
+/// Stores graph vertices as lists of incoming and outgoing edges by their
+/// index in the graph. No additional data is stored per vertex.
 #[derive(Debug, Clone)]
 pub struct Graph {
     vertices: Vec<Vertex>,
@@ -20,6 +50,7 @@ struct Vertex {
     out_edges: Vec<usize>,
 }
 
+/// A builder object that allows to easily add edges to a graph
 #[derive(Debug)]
 pub struct GraphBuilder<'g> {
     graph: &'g mut Graph,
@@ -27,16 +58,23 @@ pub struct GraphBuilder<'g> {
 }
 
 impl GraphBuilder<'_> {
+    /// Add an edge from the stored index to the passed index
+    ///
+    /// This method does not check for duplicate edges.
     pub fn add_out_edge(&mut self, index: usize) {
         self.graph.add_edge(self.index, index)
     }
 
+    /// Add an edge from the passed index to the stored index
+    ///
+    /// This method does not check for duplicate edges.
     pub fn add_in_edge(&mut self, index: usize) {
         self.graph.add_edge(index, self.index)
     }
 }
 
 impl Graph {
+    /// Create a new graph with `len` vertices and no edges
     pub fn with_vertices(len: usize) -> Self {
         let mut vertices = Vec::with_capacity(len);
         vertices.resize_with(len, Default::default);
@@ -44,6 +82,10 @@ impl Graph {
         Graph { vertices }
     }
 
+    /// Create a new graph from an existing graph-like data structure
+    ///
+    /// The given closure will be called once for every element of `g`, with a
+    /// `GraphBuilder` instance so that edges can be easily added.
     pub fn from_graph<T, F>(g: &[T], mut f: F) -> Self
         where F: FnMut(GraphBuilder<'_>, &T)
     {
@@ -56,6 +98,9 @@ impl Graph {
         graph
     }
 
+    /// Add a new edge to the graph
+    ///
+    /// This method does not check for duplicate edges.
     pub fn add_edge(&mut self, from: usize, to: usize) {
         self.vertices[from].out_degree += 1;
         self.vertices[to].in_degree += 1;
@@ -63,6 +108,9 @@ impl Graph {
         self.vertices[to].in_edges.push(from);
     }
 
+    /// Transpose the graph
+    ///
+    /// Changes the direction of all edges in the graph
     pub fn transpose(&mut self) {
         for vertex in &mut self.vertices {
             mem::swap(&mut vertex.in_degree, &mut vertex.out_degree);
@@ -70,6 +118,13 @@ impl Graph {
         }
     }
 
+    /// Perform topological sort or find strongly connected components
+    ///
+    /// If the graph contains no cycles, finds the topological ordering of this
+    /// graph using Kahn's algorithm and returns it as `Ok(sorted)`.
+    ///
+    /// If the graph contains cycles, finds the strongly connected components of
+    /// this graph using Kosaraju's algorithm and returns them as `Err(cycles)`.
     pub fn toposort_or_scc(mut self) -> Result<Vec<usize>, Vec<Vec<usize>>> {
         let mut queue = Queue::new();
         let mut sorted = Vec::new();
