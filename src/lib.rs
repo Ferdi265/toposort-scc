@@ -38,7 +38,7 @@ pub use arena_graph::*;
 /// Stores graph vertices as lists of incoming and outgoing edges by their
 /// index in the graph. No additional data is stored per vertex.
 #[derive(Debug, Clone)]
-pub struct Graph {
+pub struct IndexGraph {
     vertices: Vec<Vertex>,
 }
 
@@ -52,12 +52,22 @@ struct Vertex {
 
 /// A builder object that allows to easily add edges to a graph
 #[derive(Debug)]
-pub struct GraphBuilder<'g> {
-    graph: &'g mut Graph,
+pub struct IndexGraphBuilder<'g> {
+    graph: &'g mut IndexGraph,
     index: usize
 }
 
-impl GraphBuilder<'_> {
+impl IndexGraphBuilder<'_> {
+    /// Returns a reference to the stored graph
+    pub fn graph(&mut self) -> &mut IndexGraph {
+        self.graph
+    }
+
+    /// Returns the stored index
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
     /// Add an edge from the stored index to the passed index
     ///
     /// This method does not check for duplicate edges.
@@ -73,26 +83,26 @@ impl GraphBuilder<'_> {
     }
 }
 
-impl Graph {
+impl IndexGraph {
     /// Create a new graph with `len` vertices and no edges
     pub fn with_vertices(len: usize) -> Self {
         let mut vertices = Vec::with_capacity(len);
         vertices.resize_with(len, Default::default);
 
-        Graph { vertices }
+        IndexGraph { vertices }
     }
 
     /// Create a new graph from an existing graph-like data structure
     ///
-    /// The given closure will be called once for every element of `g`, with a
-    /// `GraphBuilder` instance so that edges can be easily added.
+    /// The given closure will be called once for every element of `g`, with an
+    /// `IndexGraphBuilder` instance so that edges can be easily added.
     pub fn from_graph<T, F>(g: &[T], mut f: F) -> Self
-        where F: FnMut(GraphBuilder<'_>, &T)
+        where F: FnMut(IndexGraphBuilder<'_>, &T)
     {
         let mut graph = Self::with_vertices(g.len());
 
         for (idx, element) in g.iter().enumerate() {
-            f(GraphBuilder { graph: &mut graph, index: idx }, element)
+            f(IndexGraphBuilder { graph: &mut graph, index: idx }, element)
         }
 
         graph

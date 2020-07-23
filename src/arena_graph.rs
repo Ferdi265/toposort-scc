@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use id_arena::Arena;
 use id_arena::ArenaBehavior;
 
-use super::Graph;
+use super::IndexGraph;
 
 /// An adjacency-list-based graph data structure wrapping an `Arena` from the
 /// `id-arena` crate.
@@ -12,7 +12,7 @@ use super::Graph;
 /// `Id` in the graph.
 #[derive(Debug, Clone)]
 pub struct ArenaGraph<'a, T, A: ArenaBehavior> {
-    graph: Graph,
+    graph: IndexGraph,
     arena_id: u32,
     phantom: PhantomData<&'a Arena<T, A>>
 }
@@ -20,24 +20,33 @@ pub struct ArenaGraph<'a, T, A: ArenaBehavior> {
 /// A builder object that allows to easily add edges to a graph
 #[derive(Debug)]
 pub struct ArenaGraphBuilder<'g, 'a, T, A: ArenaBehavior> {
-    graph: &'g mut Graph,
-    index: usize,
-    phantom: PhantomData<&'a Arena<T, A>>
+    arena_graph: &'g mut ArenaGraph<'a, T, A>,
+    index: A::Id
 }
 
 impl<'a, T, A: ArenaBehavior> ArenaGraphBuilder<'_, 'a, T, A> {
+    /// Returns a reference to the stored graph
+    pub fn graph(&mut self) -> &mut ArenaGraph<'a, T, A> {
+        self.arena_graph
+    }
+
+    /// Returns the stored id
+    pub fn index(&self) -> A::Id {
+        self.index
+    }
+
     /// Add an edge from the stored index to the passed id
     ///
     /// This method does not check for duplicate edges.
     pub fn add_out_edge(&mut self, index: A::Id) {
-        self.graph.add_edge(self.index, A::index(index))
+        self.arena_graph.graph.add_edge(A::index(self.index), A::index(index))
     }
 
     /// Add an edge from the passed index to the stored id
     ///
     /// This method does not check for duplicate edges.
     pub fn add_in_edge(&mut self, index: A::Id) {
-        self.graph.add_edge(A::index(index), self.index)
+        self.arena_graph.graph.add_edge(A::index(index), A::index(self.index))
     }
 }
 
@@ -51,18 +60,17 @@ impl<'a, T, A: ArenaBehavior> ArenaGraph<'a, T, A> {
         where F: FnMut(ArenaGraphBuilder<'_, 'a, T, A>, &T)
     {
         let mut arena_graph = ArenaGraph {
-            graph: Graph::with_vertices(g.len()),
+            graph: IndexGraph::with_vertices(g.len()),
             arena_id: 0,
             phantom: PhantomData
         };
 
-        for (idx, (id, element)) in g.iter().enumerate() {
+        for (id, element) in g.iter() {
             arena_graph.arena_id = A::arena_id(id);
 
             let builder = ArenaGraphBuilder {
-                graph: &mut arena_graph.graph,
-                index: idx,
-                phantom: PhantomData
+                arena_graph: &mut arena_graph,
+                index: id,
             };
 
             f(builder, element);
