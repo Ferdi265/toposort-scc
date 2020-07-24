@@ -13,16 +13,20 @@
 //!
 //! This crate provides:
 //!
-//! - an adjacency-list based graph data structure
-//! - an implementation of a topological sorting algorithm that runs in `O(V + E)`
-//!   time and `O(V)` additional space (Kahn's algorithm)
-//! - an implementation of an algorithm that finds the strongly connected components
-//!   of a graph in `O(V + E)` time and `O(V)` additional space (Kosaraju's algorithm)
+//! - an adjacency-list based graph data structure (`IndexGraph`)
+//! - an implementation of a topological sorting algorithm that runs in
+//!   `O(V + E)` time and `O(V)` additional space (Kahn's algorithm)
+//! - an implementation of an algorithm that finds the strongly connected
+//!   components of a graph in `O(V + E)` time and `O(V)` additional space
+//!   (Kosaraju's algorithm)
+//! - both algorithms are available via the `.toposort_or_scc()` method on
+//!   `IndexGraph`
 //!
-//! The `id-arena` feature adds an additional wrapper type that allows topological
-//! sorting and finding of strongly connected components on arbitrary graph
-//! structures built with the `id-arena` crate by creating a proxy graph that is
-//! sorted and returning a list of indices into the original graph.
+//! The `id-arena` feature adds an additional wrapper type (`ArenaGraph`) that
+//! allows topological sorting and finding of strongly connected components on
+//! arbitrary graph structures built with the `id-arena` crate by creating a
+//! proxy graph that is sorted and returning a list of indices into the original
+//! graph.
 
 use std::collections::VecDeque as Queue;
 use std::vec::IntoIter as VecIntoIter;
@@ -102,6 +106,22 @@ impl IndexGraphBuilder<'_> {
 
 impl IndexGraph {
     /// Create a new graph with `len` vertices and no edges
+    ///
+    /// Edges can then be added with the `.add_edge()` method.
+    ///
+    /// # Example
+    ///
+    /// This example creates a graph with three vertices connected together in a
+    /// cycle.
+    ///
+    /// ```rust
+    /// use toposort_scc::IndexGraph;
+    ///
+    /// let mut g = IndexGraph::with_vertices(3);
+    /// g.add_edge(0, 1);
+    /// g.add_edge(1, 2);
+    /// g.add_edge(2, 0);
+    /// ```
     pub fn with_vertices(len: usize) -> Self {
         let mut vertices = Vec::with_capacity(len);
         vertices.resize_with(len, Default::default);

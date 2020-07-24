@@ -20,6 +20,11 @@ pub struct ArenaGraph<'a, T, A: ArenaBehavior> {
 }
 
 /// A builder object that allows to easily add edges to a graph
+///
+/// It stores a vertex index, so that edges can be added specifying only the
+/// target edge or source edge.
+///
+/// See `ArenaGraph::from_graph()` for usage examples
 #[derive(Debug)]
 pub struct ArenaGraphBuilder<'g, 'a, T, A: ArenaBehavior> {
     arena_graph: &'g mut ArenaGraph<'a, T, A>,
@@ -63,6 +68,47 @@ impl<'a, T, A: ArenaBehavior> ArenaGraph<'a, T, A> {
     ///
     /// The given closure will be called once for every element of `g`, with an
     /// `ArenaGraphBuilder` instance so that edges can be easily added.
+    ///
+    /// # Example
+    ///
+    /// This example creates a graph of dependencies in a hypothetical compiler
+    /// or build tool, with edges from a dependency to the targets that use
+    /// them.
+    ///
+    /// ```rust
+    /// use id_arena::Arena;
+    /// use id_arena::Id;
+    /// use toposort_scc::ArenaGraph;
+    ///
+    /// // a target during compilation, having a name and dependencies
+    /// struct Target { name: &'static str, deps: Vec<Id<Target>> }
+    /// impl Target {
+    ///     fn new(name: &'static str) -> Self {
+    ///         Target { name, deps: Vec::new() }
+    ///     }
+    /// }
+    ///
+    /// let mut arena: Arena<Target> = Arena::new();
+    ///
+    /// let program = arena.alloc(Target::new("program"));
+    /// let main_c = arena.alloc(Target::new("main.c"));
+    /// let util_c = arena.alloc(Target::new("util.c"));
+    /// let util_h = arena.alloc(Target::new("util.h"));
+    /// let libfoo_so = arena.alloc(Target::new("libfoo_so"));
+    ///
+    /// arena[program].deps.extend_from_slice(&[main_c, util_c, libfoo_so]);
+    /// arena[main_c].deps.push(util_h);
+    /// arena[util_c].deps.push(util_h);
+    ///
+    /// let g = ArenaGraph::from_graph(&arena, |mut builder, target| {
+    ///     for &dep in &target.deps {
+    ///         builder.add_in_edge(dep);
+    ///     }
+    /// });
+    /// ```
+    ///
+    /// To get a graph with edges in the other direction, use `.add_out_edge()`
+    /// or the `.transpose()` method of the graph.
     pub fn from_graph<F>(g: &'a Arena<T, A>, mut f: F) -> ArenaGraph<'a, T, A>
         where F: FnMut(ArenaGraphBuilder<'_, 'a, T, A>, &T)
     {
@@ -108,6 +154,11 @@ impl<'a, T, A: ArenaBehavior> ArenaGraph<'a, T, A> {
     ///
     /// If the graph contains cycles, finds the strongly connected components of
     /// this graph using Kosaraju's algorithm and returns them as `Err(cycles)`.
+    ///
+    /// The difference between this function and `IndexGraph::toposort_or_scc()`
+    /// is that this function returns `id-arena` ids instead of indices.
+    ///
+    /// See `IndexGraph::toposort_or_scc()` for usage examples
     pub fn toposort_or_scc(self) -> Result<Vec<A::Id>, Vec<Vec<A::Id>>> {
         let arena_id = self.arena_id;
 
