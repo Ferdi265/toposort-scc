@@ -45,6 +45,10 @@ pub struct IndexGraph {
     vertices: Vec<Vertex>,
 }
 
+/// A vertex in an `IndexGraph`
+///
+/// Every vertex stores the vertices it is connected to via edges in both
+/// directions.
 #[derive(Debug, Clone, Default)]
 pub struct Vertex {
     in_degree: usize,
@@ -54,6 +58,11 @@ pub struct Vertex {
 }
 
 /// A builder object that allows to easily add edges to a graph
+///
+/// It stores a vertex index, so that edges can be added specifying only the
+/// target edge or source edge.
+///
+/// See `IndexGraph::from_graph()` for usage examples
 #[derive(Debug)]
 pub struct IndexGraphBuilder<'g> {
     graph: &'g mut IndexGraph,
@@ -100,10 +109,86 @@ impl IndexGraph {
         IndexGraph { vertices }
     }
 
+    /// Create a new graph from a list of adjacent vertices
+    ///
+    /// The graph will contain outgoing edges from each vertex to the vertices
+    /// in its adjacency list.
+    ///
+    /// # Example
+    ///
+    /// This example creates an `IndexGraph` of the example graph from the
+    /// Wikipedia page for
+    /// [Topological sorting](https://en.wikipedia.org/wiki/Topological_sorting).
+    ///
+    /// ```rust
+    /// use toposort_scc::IndexGraph;
+    ///
+    /// let g = IndexGraph::from_adjacency_list(&vec![
+    ///     vec![3],
+    ///     vec![3, 4],
+    ///     vec![4, 7],
+    ///     vec![5, 6, 7],
+    ///     vec![6],
+    ///     vec![],
+    ///     vec![],
+    ///     vec![]
+    /// ]);
+    /// ```
+    pub fn from_adjacency_list<S>(g: &[S]) -> Self
+        where S: AsRef<[usize]>
+    {
+        IndexGraph::from_graph(g, |mut builder, edges| for &edge in edges.as_ref() {
+            builder.add_out_edge(edge)
+        })
+    }
+
     /// Create a new graph from an existing graph-like data structure
     ///
     /// The given closure will be called once for every element of `g`, with an
     /// `IndexGraphBuilder` instance so that edges can be easily added.
+    ///
+    /// This method is useful for creating `IndexGraphs` from existing
+    /// structures.
+    ///
+    /// # Example
+    ///
+    /// This example creates a graph of dependencies in a hypothetical compiler
+    /// or build tool, with edges from a dependency to the targets that use
+    /// them.
+    ///
+    /// ```rust
+    /// use toposort_scc::IndexGraph;
+    ///
+    /// // a target during compilation, having a name and dependencies
+    /// struct Target { name: &'static str, deps: Vec<usize> }
+    /// impl Target {
+    ///     fn new(name: &'static str, deps: Vec<usize>) -> Self {
+    ///         Target { name, deps }
+    ///     }
+    /// }
+    ///
+    /// let targets = vec![
+    ///     Target::new("program", vec![1, 2, 4]),
+    ///     Target::new("main.c", vec![3]),
+    ///     Target::new("util.c", vec![3]),
+    ///     Target::new("util.h", vec![]),
+    ///     Target::new("libfoo.so", vec![])
+    /// ];
+    ///
+    /// let g = IndexGraph::from_graph(&targets, |mut builder, target| {
+    ///     for &dep in &target.deps {
+    ///         builder.add_in_edge(dep);
+    ///     }
+    /// });
+    /// ```
+    ///
+    /// To get a graph with edges in the other direction, use `.add_out_edge()`
+    /// or the `.transpose()` method of the graph.
+    ///
+    /// More complicated graph structures or structures that don't store edges
+    /// as indices will need to first create a `Map` to look up indices in.
+    /// Alternatively, the `ArenaGraph` type from the `id-arena` feature can be
+    /// used.
     pub fn from_graph<T, F>(g: &[T], mut f: F) -> Self
         where F: FnMut(IndexGraphBuilder<'_>, &T)
     {
@@ -133,7 +218,7 @@ impl IndexGraph {
 
     /// Transpose the graph
     ///
-    /// Changes the direction of all edges in the graph
+    /// Inverts the direction of all edges in the graph
     pub fn transpose(&mut self) {
         for vertex in &mut self.vertices {
             mem::swap(&mut vertex.in_degree, &mut vertex.out_degree);
