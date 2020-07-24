@@ -19,8 +19,8 @@
 //! - an implementation of an algorithm that finds the strongly connected
 //!   components of a graph in `O(V + E)` time and `O(V)` additional space
 //!   (Kosaraju's algorithm)
-//! - both algorithms are available via the `.toposort_or_scc()` method on
-//!   `IndexGraph`
+//! - both algorithms are available either as single methods (`.toposort()` and
+//!   `.scc()`) or as a combined method (`.toposort_or_scc()`) on `IndexGraph`
 //!
 //! The `id-arena` feature adds an additional wrapper type (`ArenaGraph`) that
 //! allows topological sorting and finding of strongly connected components on
@@ -277,46 +277,19 @@ impl IndexGraph {
         }
     }
 
-    /// Perform topological sort or find strongly connected components
+    /// Internal method that attempts to perform topological sort
     ///
     /// If the graph contains no cycles, finds the topological ordering of this
     /// graph using Kahn's algorithm and returns it as `Ok(sorted)`.
     ///
-    /// If the graph contains cycles, finds the strongly connected components of
-    /// this graph using Kosaraju's algorithm and returns them as `Err(cycles)`.
+    /// If the graph contains cycles, returns the graph as Err(self).
     ///
-    /// # Example
+    /// This method is not public because it breaks the invariants of
+    /// `Vertex.in_degree` and `Vertex.out_degree`
     ///
-    /// This example creates an `IndexGraph` of the example graph from the
-    /// Wikipedia page for
-    /// [Topological sorting](https://en.wikipedia.org/wiki/Topological_sorting)
-    /// and performs a topological sort.
-    ///
-    /// A copy of the graph with cycles in it is created to demonstrate finding
-    /// of strongly connected components.
-    ///
-    /// ```rust
-    /// use toposort_scc::IndexGraph;
-    ///
-    /// let g = IndexGraph::from_adjacency_list(&vec![
-    ///     vec![3],
-    ///     vec![3, 4],
-    ///     vec![4, 7],
-    ///     vec![5, 6, 7],
-    ///     vec![6],
-    ///     vec![],
-    ///     vec![],
-    ///     vec![]
-    /// ]);
-    ///
-    /// let mut g2 = g.clone();
-    /// g2.add_edge(0, 0); // trivial cycle [0]
-    /// g2.add_edge(6, 2); // cycle [2, 4, 6]
-    ///
-    /// assert_eq!(g.toposort_or_scc(), Ok(vec![0, 1, 2, 3, 4, 5, 7, 6]));
-    /// assert_eq!(g2.toposort_or_scc(), Err(vec![vec![0], vec![4, 2, 6]]));
-    /// ```
-    pub fn toposort_or_scc(mut self) -> Result<Vec<usize>, Vec<Vec<usize>>> {
+    /// This method sets `Vertex.out_degree` to zero for every vertex so that
+    /// the precondition of `IndexGraph::scc_internal()` is fulfilled
+    fn try_toposort_internal(mut self) -> Result<Vec<usize>, IndexGraph> {
         let mut queue = Queue::new();
         let mut sorted = Vec::new();
 
@@ -352,18 +325,92 @@ impl IndexGraph {
 
         // if every vertex appears in sorted list, sort is successful
         if sorted.len() == self.vertices.len() {
-            return Ok(sorted)
+            Ok(sorted)
         } else {
-            drop(sorted);
+            Err(self)
         }
+    }
 
-        // else, compute strongly connected components
-        // out_degree is zero everywhere, can be used as a 'visited' flag
+    /// Try to perform topological sort on the graph
+    ///
+    /// If the graph contains no cycles, finds the topological ordering of this
+    /// graph using Kahn's algorithm and returns it as `Ok(sorted)`.
+    ///
+    /// If the graph contains cycles, returns the graph as `Err(self)`.
+    ///
+    /// For examples, see `IndexGraph::toposort()`
+    pub fn try_toposort(self) -> Result<Vec<usize>, IndexGraph> {
+        self.try_toposort_internal()
+            .map_err(|mut graph| {
+                for vertex in graph.vertices.iter_mut() {
+                    vertex.in_degree = vertex.in_edges.len();
+                    vertex.out_degree = vertex.out_edges.len();
+                }
+
+                graph
+            })
+    }
+
+    /// Perform topological sort on the graph
+    ///
+    /// If the graph contains no cycles, finds the topological ordering of this
+    /// graph using Kahn's algorithm and returns it as `Some(sorted)`.
+    ///
+    /// If the graph contains cycles, returns `None`.
+    ///
+    /// # Example
+    ///
+    /// This example creates an `IndexGraph` of the example graph from the
+    /// Wikipedia page for
+    /// [Topological sorting](https://en.wikipedia.org/wiki/Topological_sorting)
+    /// and performs a topological sort.
+    ///
+    /// A copy of the graph with cycles in it is created to demonstrate failure.
+    ///
+    /// ```rust
+    /// use toposort_scc::IndexGraph;
+    ///
+    /// let g = IndexGraph::from_adjacency_list(&vec![
+    ///     vec![3],
+    ///     vec![3, 4],
+    ///     vec![4, 7],
+    ///     vec![5, 6, 7],
+    ///     vec![6],
+    ///     vec![],
+    ///     vec![],
+    ///     vec![]
+    /// ]);
+    ///
+    /// let mut g2 = g.clone();
+    /// g2.add_edge(0, 0); // trivial cycle [0]
+    /// g2.add_edge(6, 2); // cycle [2, 4, 6]
+    ///
+    /// assert_eq!(g.toposort(), Some(vec![0, 1, 2, 3, 4, 5, 7, 6]));
+    /// assert_eq!(g2.toposort(), None);
+    /// ```
+    pub fn toposort(self) -> Option<Vec<usize>> {
+        self.try_toposort_internal().ok()
+    }
+
+    /// Internal method that finds strongly connected components
+    ///
+    /// Finds the strongly connected components of this graph using Kosaraju's
+    /// algorithm and returns them.
+    ///
+    /// This method is not public because it assumes `Vertex.out_degree` is
+    /// zero for every vertex.
+    fn scc_internal(mut self) -> Vec<Vec<usize>> {
+        // assumes out_degree is zero everywhere, to be used as a 'visited' flag
+
+        // empty graphs are always cycle-free
+        if self.vertices.is_empty() {
+            return Vec::new()
+        }
 
         // Kosaraju's algorithm for strongly connected components
 
         // start depth-first search with first vertex
-        // (empty graphs are always cycle-free, so won't reach here)
+        let mut queue = Queue::new();
         let mut dfs_stack = vec![(0, 0)];
         self.vertices[0].out_degree = 1;
 
@@ -415,7 +462,89 @@ impl IndexGraph {
         }
 
         // return collected cycles
-        Err(cycles)
+        cycles
+    }
+
+    /// Find strongly connected components
+    ///
+    /// Finds the strongly connected components of this graph using Kosaraju's
+    /// algorithm and returns them.
+    ///
+    /// # Example
+    ///
+    /// This examples creates an `IndexGraph` of the example graph from the
+    /// Wikipedia page for
+    /// [Strongly connected compoents](https://en.wikipedia.org/wiki/Strongly_connected_component)
+    /// and finds the strongly connected components.
+    ///
+    /// ```rust
+    /// use toposort_scc::IndexGraph;
+    ///
+    /// let g = IndexGraph::from_adjacency_list(&vec![
+    ///     vec![1],
+    ///     vec![2, 4, 5],
+    ///     vec![3, 6],
+    ///     vec![2, 7],
+    ///     vec![0, 5],
+    ///     vec![6],
+    ///     vec![5],
+    ///     vec![3, 6]
+    /// ]);
+    ///
+    /// assert_eq!(g.scc(), vec![vec![4, 1, 0], vec![3, 2, 7], vec![5, 6]]);
+    /// ```
+    pub fn scc(mut self) -> Vec<Vec<usize>> {
+        for vertex in self.vertices.iter_mut() {
+            vertex.out_degree = 0;
+        }
+
+        self.scc_internal()
+    }
+
+    /// Perform topological sort or find strongly connected components
+    ///
+    /// If the graph contains no cycles, finds the topological ordering of this
+    /// graph using Kahn's algorithm and returns it as `Ok(sorted)`.
+    ///
+    /// If the graph contains cycles, finds the strongly connected components of
+    /// this graph using Kosaraju's algorithm and returns them as `Err(cycles)`.
+    ///
+    /// # Example
+    ///
+    /// This example creates an `IndexGraph` of the example graph from the
+    /// Wikipedia page for
+    /// [Topological sorting](https://en.wikipedia.org/wiki/Topological_sorting)
+    /// and performs a topological sort.
+    ///
+    /// A copy of the graph with cycles in it is created to demonstrate finding
+    /// of strongly connected components.
+    ///
+    /// ```rust
+    /// use toposort_scc::IndexGraph;
+    ///
+    /// let g = IndexGraph::from_adjacency_list(&vec![
+    ///     vec![3],
+    ///     vec![3, 4],
+    ///     vec![4, 7],
+    ///     vec![5, 6, 7],
+    ///     vec![6],
+    ///     vec![],
+    ///     vec![],
+    ///     vec![]
+    /// ]);
+    ///
+    /// let mut g2 = g.clone();
+    /// g2.add_edge(0, 0); // trivial cycle [0]
+    /// g2.add_edge(6, 2); // cycle [2, 4, 6]
+    ///
+    /// assert_eq!(g.toposort_or_scc(), Ok(vec![0, 1, 2, 3, 4, 5, 7, 6]));
+    /// assert_eq!(g2.toposort_or_scc(), Err(vec![vec![0], vec![4, 2, 6]]));
+    /// ```
+    pub fn toposort_or_scc(self) -> Result<Vec<usize>, Vec<Vec<usize>>> {
+        match self.try_toposort_internal() {
+            Ok(sorted) => Ok(sorted),
+            Err(graph) => Err(graph.scc_internal())
+        }
     }
 }
 

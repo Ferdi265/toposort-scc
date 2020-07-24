@@ -147,6 +147,68 @@ impl<'a, T, A: ArenaBehavior> ArenaGraph<'a, T, A> {
         self.graph
     }
 
+    /// Try to perform topological sort on the graph
+    ///
+    /// If the graph contains no cycles, finds the topological ordering of this
+    /// graph using Kahn's algorithm and returns it as `Ok(sorted)`.
+    ///
+    /// If the graph contains cycles, returns the graph as `Err(self)`.
+    ///
+    /// The difference between this function and `IndexGraph::try_toposort()` is
+    /// that this function returns `id-arena` ids instead of indices.
+    ///
+    /// For examples, see `IndexGraph::toposort()`
+    pub fn try_toposort(self) -> Result<Vec<A::Id>, ArenaGraph<'a, T, A>> {
+        let arena_id = self.arena_id;
+
+        self.graph.try_toposort()
+            .map(|sorted| sorted.into_iter()
+                .map(|idx| A::new_id(arena_id, idx))
+                .collect()
+            )
+            .map_err(|graph| ArenaGraph { graph, arena_id, phantom: PhantomData })
+    }
+
+    /// Perform topological sort on the graph
+    ///
+    /// If the graph contains no cycles, finds the topological ordering of this
+    /// graph using Kahn's algorithm and returns it as `Some(sorted)`.
+    ///
+    /// If the graph contains cycles, returns `None`.
+    ///
+    /// The difference between this function and `IndexGraph::toposort()` is
+    /// that this function returns `id-arena` ids instead of indices.
+    ///
+    /// For examples, see `IndexGraph::toposort()`
+    pub fn toposort(self) -> Option<Vec<A::Id>> {
+        let arena_id = self.arena_id;
+
+        self.graph.toposort()
+            .map(|sorted| sorted.into_iter()
+                .map(|idx| A::new_id(arena_id, idx))
+                .collect()
+            )
+    }
+    /// Find strongly connected components
+    ///
+    /// Finds the strongly connected components of this graph using Kosaraju's
+    /// algorithm and returns them.
+    ///
+    /// The difference between this function and `IndexGraph::scc()` is that
+    /// this function returns `id-arena` ids instead of indices.
+    ///
+    /// For examples, see `IndexGraph::toposort_or_scc()`
+    pub fn scc(self) -> Vec<Vec<A::Id>> {
+        let arena_id = self.arena_id;
+
+        self.graph.scc().into_iter()
+            .map(|cycle| cycle.into_iter()
+                .map(|idx| A::new_id(arena_id, idx))
+                .collect()
+            )
+            .collect()
+    }
+
     /// Perform topological sort or find strongly connected components
     ///
     /// If the graph contains no cycles, finds the topological ordering of this
@@ -158,7 +220,7 @@ impl<'a, T, A: ArenaBehavior> ArenaGraph<'a, T, A> {
     /// The difference between this function and `IndexGraph::toposort_or_scc()`
     /// is that this function returns `id-arena` ids instead of indices.
     ///
-    /// See `IndexGraph::toposort_or_scc()` for usage examples
+    /// For examples, see `IndexGraph::toposort_or_scc()`
     pub fn toposort_or_scc(self) -> Result<Vec<A::Id>, Vec<Vec<A::Id>>> {
         let arena_id = self.arena_id;
 

@@ -1,5 +1,5 @@
 [package]
-version = "0.5.2"
+version = "0.5.3"
 edition = "2018"
 name = "toposort-scc"
 description = "An implementation of Kahn's algorithm for topological sorting and Kosaraju's algorithm for strongly connected components"
