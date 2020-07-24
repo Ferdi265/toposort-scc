@@ -62,7 +62,12 @@ pub struct IndexGraphBuilder<'g> {
 
 impl IndexGraphBuilder<'_> {
     /// Returns a reference to the stored graph
-    pub fn graph(&mut self) -> &mut IndexGraph {
+    pub fn as_graph(&self) -> &IndexGraph {
+        self.graph
+    }
+
+    /// Returns a mutable reference to the stored graph
+    pub fn as_mut_graph(&mut self) -> &mut IndexGraph {
         self.graph
     }
 

@@ -32,7 +32,7 @@ impl<'a, T, A: ArenaBehavior> ArenaGraphBuilder<'_, 'a, T, A> {
         self.arena_graph
     }
 
-    /// Returns a reference to the stored graph
+    /// Returns a mutable reference to the stored graph
     pub fn as_mut_graph(&mut self) -> &mut ArenaGraph<'a, T, A> {
         self.arena_graph
     }
