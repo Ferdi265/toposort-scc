@@ -26,7 +26,12 @@ pub struct ArenaGraphBuilder<'g, 'a, T, A: ArenaBehavior> {
 
 impl<'a, T, A: ArenaBehavior> ArenaGraphBuilder<'_, 'a, T, A> {
     /// Returns a reference to the stored graph
-    pub fn graph(&mut self) -> &mut ArenaGraph<'a, T, A> {
+    pub fn as_graph(&self) -> &ArenaGraph<'a, T, A> {
+        self.arena_graph
+    }
+
+    /// Returns a reference to the stored graph
+    pub fn as_mut_graph(&mut self) -> &mut ArenaGraph<'a, T, A> {
         self.arena_graph
     }
 
@@ -77,6 +82,21 @@ impl<'a, T, A: ArenaBehavior> ArenaGraph<'a, T, A> {
         }
 
         arena_graph
+    }
+
+    /// Returns the id of the arena this graph belongs to
+    pub fn arena_id(&self) -> u32 {
+        self.arena_id
+    }
+
+    /// Returns a reference to the underlying `IndexGraph`
+    pub fn as_index_graph(&self) -> &IndexGraph {
+        &self.graph
+    }
+
+    /// Returns the underlying `IndexGraph`
+    pub fn into_index_graph(self) -> IndexGraph {
+        self.graph
     }
 
     /// Perform topological sort or find strongly connected components

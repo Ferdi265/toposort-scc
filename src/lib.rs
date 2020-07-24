@@ -25,6 +25,8 @@
 //! sorted and returning a list of indices into the original graph.
 
 use std::collections::VecDeque as Queue;
+use std::vec::IntoIter as VecIntoIter;
+use std::slice::Iter as SliceIter;
 use std::mem;
 
 #[cfg(feature = "id-arena")]
@@ -43,11 +45,11 @@ pub struct IndexGraph {
 }
 
 #[derive(Debug, Clone, Default)]
-struct Vertex {
-    in_degree: usize,
-    out_degree: usize,
-    in_edges: Vec<usize>,
-    out_edges: Vec<usize>,
+pub struct Vertex {
+    pub in_degree: usize,
+    pub out_degree: usize,
+    pub in_edges: Vec<usize>,
+    pub out_edges: Vec<usize>,
 }
 
 /// A builder object that allows to easily add edges to a graph
@@ -106,6 +108,11 @@ impl IndexGraph {
         }
 
         graph
+    }
+
+    /// Returns an iterator over the contained vertices
+    pub fn iter(&self) -> SliceIter<'_, Vertex> {
+        self.vertices.iter()
     }
 
     /// Add a new edge to the graph
@@ -235,5 +242,23 @@ impl IndexGraph {
 
         // return collected cycles
         Err(cycles)
+    }
+}
+
+impl<'g> IntoIterator for &'g IndexGraph {
+    type Item = &'g Vertex;
+    type IntoIter = SliceIter<'g, Vertex>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.vertices.iter()
+    }
+}
+
+impl IntoIterator for IndexGraph {
+    type Item = Vertex;
+    type IntoIter = VecIntoIter<Vertex>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.vertices.into_iter()
     }
 }
