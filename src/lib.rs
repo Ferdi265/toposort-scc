@@ -233,6 +233,38 @@ impl IndexGraph {
     ///
     /// If the graph contains cycles, finds the strongly connected components of
     /// this graph using Kosaraju's algorithm and returns them as `Err(cycles)`.
+    ///
+    /// # Example
+    ///
+    /// This example creates an `IndexGraph` of the example graph from the
+    /// Wikipedia page for
+    /// [Topological sorting](https://en.wikipedia.org/wiki/Topological_sorting)
+    /// and performs a topological sort.
+    ///
+    /// A copy of the graph with cycles in it is created to demonstrate finding
+    /// of strongly connected components.
+    ///
+    /// ```rust
+    /// use toposort_scc::IndexGraph;
+    ///
+    /// let g = IndexGraph::from_adjacency_list(&vec![
+    ///     vec![3],
+    ///     vec![3, 4],
+    ///     vec![4, 7],
+    ///     vec![5, 6, 7],
+    ///     vec![6],
+    ///     vec![],
+    ///     vec![],
+    ///     vec![]
+    /// ]);
+    ///
+    /// let mut g2 = g.clone();
+    /// g2.add_edge(0, 0); // trivial cycle [0]
+    /// g2.add_edge(6, 2); // cycle [2, 4, 6]
+    ///
+    /// assert_eq!(g.toposort_or_scc(), Ok(vec![0, 1, 2, 3, 4, 5, 7, 6]));
+    /// assert_eq!(g2.toposort_or_scc(), Err(vec![vec![0], vec![4, 2, 6]]));
+    /// ```
     pub fn toposort_or_scc(mut self) -> Result<Vec<usize>, Vec<Vec<usize>>> {
         let mut queue = Queue::new();
         let mut sorted = Vec::new();
