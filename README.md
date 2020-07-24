@@ -12,8 +12,8 @@ for strongly connected components.
 - an implementation of an algorithm that finds the strongly connected
   components of a graph in `O(V + E)` time and `O(V)` additional space
   (Kosaraju's algorithm)
-- both algorithms are available via the `.toposort_or_scc()` method on
-  `IndexGraph`
+- both algorithms are available either as single methods (`.toposort()` and
+  `.scc()`) or as a combined method (`.toposort_or_scc()`) on `IndexGraph`
 
 The `id-arena` feature adds an additional wrapper type (`ArenaGraph`) that
 allows topological sorting and finding of strongly connected components on
