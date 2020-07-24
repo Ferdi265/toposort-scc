@@ -6,18 +6,51 @@ for topological sorting and
 [Kosaraju's algorithm](https://en.wikipedia.org/wiki/Kosaraju%27s_algorithm)
 for strongly connected components.
 
-This crate provides:
+- an adjacency-list based graph data structure (`IndexGraph`)
+- an implementation of a topological sorting algorithm that runs in
+  `O(V + E)` time and `O(V)` additional space (Kahn's algorithm)
+- an implementation of an algorithm that finds the strongly connected
+  components of a graph in `O(V + E)` time and `O(V)` additional space
+  (Kosaraju's algorithm)
+- both algorithms are available via the `.toposort_or_scc()` method on
+  `IndexGraph`
 
-- an adjacency-list based graph data structure
-- an implementation of a topological sorting algorithm that runs in `O(V + E)`
-  time and `O(V)` additional space (Kahn's algorithm)
-- an implementation of an algorithm that finds the strongly connected components
-  of a graph in `O(V + E)` time and `O(V)` additional space (Kosaraju's algorithm)
+The `id-arena` feature adds an additional wrapper type (`ArenaGraph`) that
+allows topological sorting and finding of strongly connected components on
+arbitrary graph structures built with the `id-arena` crate by creating a
+proxy graph that is sorted and returning a list of indices into the original
+graph.
 
-The `id-arena` feature adds an additional wrapper type that allows topological
-sorting and finding of strongly connected components on arbitrary graph
-structures built with the `id-arena` crate by creating a proxy graph that is
-sorted and returning a list of indices into the original graph.
+## Example
+
+This example creates an `IndexGraph` of the example graph from the
+Wikipedia page for
+[Topological sorting](https://en.wikipedia.org/wiki/Topological_sorting).
+
+A copy of the graph with cycles in it is created to demonstrate finding
+of strongly connected components.
+
+```rust
+use toposort_scc::IndexGraph;
+
+let g = IndexGraph::from_adjacency_list(&vec![
+    vec![3],
+    vec![3, 4],
+    vec![4, 7],
+    vec![5, 6, 7],
+    vec![6],
+    vec![],
+    vec![],
+    vec![]
+]);
+
+let mut g2 = g.clone();
+g2.add_edge(0, 0); // trivial cycle [0]
+g2.add_edge(6, 2); // cycle [2, 4, 6]
+
+assert_eq!(g.toposort_or_scc(), Ok(vec![0, 1, 2, 3, 4, 5, 7, 6]));
+assert_eq!(g2.toposort_or_scc(), Err(vec![vec![0], vec![4, 2, 6]]));
+```
 
 ## Documentation
 
