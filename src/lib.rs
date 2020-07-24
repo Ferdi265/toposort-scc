@@ -47,8 +47,8 @@ pub struct IndexGraph {
 
 #[derive(Debug, Clone, Default)]
 pub struct Vertex {
-    pub in_degree: usize,
-    pub out_degree: usize,
+    in_degree: usize,
+    out_degree: usize,
     pub in_edges: Vec<usize>,
     pub out_edges: Vec<usize>,
 }
