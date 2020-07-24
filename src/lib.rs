@@ -27,6 +27,7 @@
 use std::collections::VecDeque as Queue;
 use std::vec::IntoIter as VecIntoIter;
 use std::slice::Iter as SliceIter;
+use std::ops::Index;
 use std::mem;
 
 #[cfg(feature = "id-arena")]
@@ -242,6 +243,14 @@ impl IndexGraph {
 
         // return collected cycles
         Err(cycles)
+    }
+}
+
+impl Index<usize> for IndexGraph {
+    type Output = Vertex;
+
+    fn index(&self, index: usize) -> &Vertex {
+        &self.vertices[index]
     }
 }
 

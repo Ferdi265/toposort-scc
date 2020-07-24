@@ -1,9 +1,11 @@
 use std::marker::PhantomData;
+use std::ops::Index;
 
 use id_arena::Arena;
 use id_arena::ArenaBehavior;
 
 use super::IndexGraph;
+use super::Vertex;
 
 /// An adjacency-list-based graph data structure wrapping an `Arena` from the
 /// `id-arena` crate.
@@ -121,5 +123,13 @@ impl<'a, T, A: ArenaBehavior> ArenaGraph<'a, T, A> {
                 )
                 .collect()
             )
+    }
+}
+
+impl<T, A: ArenaBehavior> Index<A::Id> for ArenaGraph<'_, T, A> {
+    type Output = Vertex;
+
+    fn index(&self, id: A::Id) -> &Vertex {
+        &self.graph[A::index(id)]
     }
 }
